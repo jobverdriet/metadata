@@ -1,14 +1,18 @@
 {
   "name": "Muskletoe",
   "symbol": "MTOE",
-  "description": "A fun meme coin on Solana!",
-  "image": "https://arweave.net/<link-to-your-image>",
+  "description": "A festive memecoin for the holidays.",
+  "image": "https://raw.githubusercontent.com/jobverdriet/metadata/main/muskletoe.png",
   "attributes": [
-    { "trait_type": "Purpose", "value": "Meme Coin" }
+    { "trait_type": "Holiday", "value": "Christmas" }
   ],
   "properties": {
-    "files": [
-      { "uri": "https://arweave.net/<link-to-your-image>", "type": "image/png" }
+    "creators": [
+      {
+        "address": "HQm72tso9hHnLxHiHiabZmEjjmkkg8qMW7DyveK7McZA",
+        "share": 100
+      }
     ]
   }
 }
+
