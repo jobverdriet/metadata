@@ -1,0 +1,14 @@
+{
+  "name": "Muskletoe",
+  "symbol": "MTOE",
+  "description": "A fun meme coin on Solana!",
+  "image": "https://arweave.net/<link-to-your-image>",
+  "attributes": [
+    { "trait_type": "Purpose", "value": "Meme Coin" }
+  ],
+  "properties": {
+    "files": [
+      { "uri": "https://arweave.net/<link-to-your-image>", "type": "image/png" }
+    ]
+  }
+}
