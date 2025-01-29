@@ -2,28 +2,45 @@
 <html lang="nl">
 <head>
   <meta charset="UTF-8" />
+  <!-- Belangrijk voor mobiel -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Workout & Gewicht Tracker</title>
+
   <!-- In-line CSS voor demo. In productie liever in apart CSS-bestand. -->
   <style>
+    /* Basisstijl */
     body {
       font-family: Arial, sans-serif;
-      margin: 0; padding: 0;
+      margin: 0; 
+      padding: 0;
       background: #f6f6f6;
+      color: #333;
     }
     header {
-      background: #333; color: #fff;
+      background: #333; 
+      color: #fff;
       padding: 15px;
+      text-align: center;
     }
     header h1 {
-      margin: 0; font-size: 1.2rem;
+      margin: 0; 
+      font-size: 1.3rem;
     }
     nav {
-      display: flex; gap: 10px;
-      background: #ddd; padding: 10px;
+      display: flex; 
+      gap: 10px;
+      background: #ddd; 
+      padding: 10px;
+      justify-content: center; /* Midden uitgelijnd */
+      flex-wrap: wrap; /* Past zich aan als het te klein wordt */
     }
     nav button {
-      cursor: pointer; padding: 8px 12px;
-      border: none; background: #eee;
+      cursor: pointer; 
+      padding: 8px 12px;
+      border: none; 
+      background: #eee;
+      font-size: 1rem;
+      border-radius: 4px;
     }
     nav button:hover {
       background: #ccc;
@@ -31,19 +48,22 @@
     section {
       padding: 15px;
       display: none; /* We tonen secties dynamisch */
-    }
-    section.active {
-      display: block;
+      max-width: 800px; /* max breedte voor grote schermen */
+      margin: 0 auto;   /* centreren */
       background: #fff;
       border-top: 1px solid #ccc;
     }
+    section.active {
+      display: block;
+    }
     h2 {
       margin-top: 0;
+      font-size: 1.2rem;
     }
     .chart-container {
       width: 100%;
       max-width: 600px;
-      margin: 20px 0;
+      margin: 20px auto;
     }
     table {
       border-collapse: collapse; 
@@ -52,6 +72,82 @@
     th, td {
       border: 1px solid #ccc; 
       padding: 8px;
+    }
+    label {
+      display: inline-block;
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+    input[type="number"], select {
+      padding: 5px 8px;
+      margin: 5px 0;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+    button {
+      margin: 5px 0;
+    }
+
+    /* Container voor dag/spiergroep/oefening */
+    .workout-selectors {
+      display: flex; 
+      flex-wrap: wrap; 
+      gap: 20px;
+    }
+    .workout-selectors > div {
+      display: flex; 
+      flex-direction: column;
+    }
+
+    /* Lichte margin-top bij set/gewicht invoer */
+    .set-input-container {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    /* Lijst in oefening-historie */
+    #exerciseHistoryList div {
+      border: 1px solid #ccc; 
+      padding: 5px;
+      margin-bottom: 5px;
+      border-radius: 4px;
+      background: #fafafa;
+    }
+
+    /* Media query voor mobiel (max breedte ~ 768px) */
+    @media (max-width: 768px) {
+      nav {
+        flex-direction: column;
+        align-items: center;
+      }
+      nav button {
+        width: 80%; 
+        margin-bottom: 5px;
+      }
+      .workout-selectors {
+        flex-direction: column;
+      }
+      .workout-selectors > div {
+        width: 100%;
+      }
+      section {
+        padding: 10px;
+        width: 95%;
+        margin: 10px auto;
+      }
+      button {
+        width: 100%;
+      }
+      input[type="number"], select {
+        width: 100%;
+        font-size: 1rem;
+      }
+      .set-input-container {
+        flex-direction: column;
+      }
     }
   </style>
 </head>
@@ -81,17 +177,17 @@
   </form>
   
   <hr />
-  <button onclick="resetData()">Reset alle data</button>
+  <button onclick="resetData()" style="background:#ffebee;">Reset alle data</button>
 </section>
 
 <!-- WORKOUT SECTION -->
 <section id="workoutSection">
   <h2>Workouts</h2>
   
-  <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+  <div class="workout-selectors">
     <!-- Dagselectie -->
     <div>
-      <label for="daySelect"><strong>Kies een dag:</strong></label><br />
+      <label for="daySelect"><strong>Kies een dag:</strong></label>
       <select id="daySelect">
         <option value="Maandag">Maandag</option>
         <option value="Dinsdag">Dinsdag</option>
@@ -105,7 +201,7 @@
     
     <!-- Spiergroepselectie -->
     <div>
-      <label for="muscleGroupSelect"><strong>Kies een spiergroep:</strong></label><br />
+      <label for="muscleGroupSelect"><strong>Kies een spiergroep:</strong></label>
       <select id="muscleGroupSelect" onchange="updateExerciseSelect()">
         <!-- Dynamisch gevuld via init() -->
       </select>
@@ -113,7 +209,7 @@
     
     <!-- Oefeningselectie -->
     <div>
-      <label for="exerciseSelect"><strong>Kies een oefening:</strong></label><br />
+      <label for="exerciseSelect"><strong>Kies een oefening:</strong></label>
       <select id="exerciseSelect">
         <!-- Dynamisch gevuld op basis van spiergroep -->
       </select>
@@ -121,13 +217,15 @@
   </div>
   
   <!-- Sets/gewichten invoer -->
-  <div style="margin-top: 20px;">
-    <label for="setWeight">Gewicht (kg):</label>
-    <input type="number" step="0.1" id="setWeight" style="width:80px;" />
-    &nbsp;
-    <label for="setReps">Herhalingen:</label>
-    <input type="number" id="setReps" style="width:60px;" />
-    &nbsp;
+  <div class="set-input-container">
+    <div>
+      <label for="setWeight">Gewicht (kg):</label>
+      <input type="number" step="0.1" id="setWeight" />
+    </div>
+    <div>
+      <label for="setReps">Herhalingen:</label>
+      <input type="number" id="setReps" />
+    </div>
     <button onclick="addSet()">Voeg set toe</button>
   </div>
 </section>
