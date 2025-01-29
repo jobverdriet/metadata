@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Workout & Gewicht Tracker</title>
+  <!-- In-line CSS voor demo. In productie liever in apart CSS-bestand. -->
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0; padding: 0;
+      background: #f6f6f6;
+    }
+    header {
+      background: #333; color: #fff;
+      padding: 15px;
+    }
+    header h1 {
+      margin: 0; font-size: 1.2rem;
+    }
+    nav {
+      display: flex; gap: 10px;
+      background: #ddd; padding: 10px;
+    }
+    nav button {
+      cursor: pointer; padding: 8px 12px;
+      border: none; background: #eee;
+    }
+    nav button:hover {
+      background: #ccc;
+    }
+    section {
+      padding: 15px;
+      display: none; /* We tonen secties dynamisch */
+    }
+    section.active {
+      display: block;
+      background: #fff;
+      border-top: 1px solid #ccc;
+    }
+    h2 {
+      margin-top: 0;
+    }
+    .chart-container {
+      width: 100%;
+      max-width: 600px;
+      margin: 20px 0;
+    }
+    table {
+      border-collapse: collapse; 
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #ccc; 
+      padding: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Workout & Gewicht Tracker</h1>
+</header>
+
+<nav>
+  <button onclick="showSection('homeSection')">Home</button>
+  <button onclick="showSection('workoutSection')">Workouts</button>
+  <button onclick="showSection('exerciseHistorySection')">Oefening-historie</button>
+  <button onclick="showSection('weightHistorySection')">Gewicht-historie</button>
+</nav>
+
+<!-- HOME SECTION -->
+<section id="homeSection" class="active">
+  <h2>Home / Dashboard</h2>
+  <p>Welkom! Gebruik de navigatie hierboven om je workouts te beheren of je gewicht en voortgang te bekijken.</p>
+  
+  <h3>Snelle gewichtsregistratie</h3>
+  <form onsubmit="event.preventDefault(); addWeightQuick();">
+    <label for="quickWeightValue">Gewicht (kg):</label>
+    <input type="number" step="0.1" id="quickWeightValue" required />
+    <button type="submit">Opslaan</button>
+  </form>
+  
+  <hr />
+  <button onclick="resetData()">Reset alle data</button>
+</section>
+
+<!-- WORKOUT SECTION -->
+<section id="workoutSection">
+  <h2>Workouts</h2>
+  
+  <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+    <!-- Dagselectie -->
+    <div>
+      <label for="daySelect"><strong>Kies een dag:</strong></label><br />
+      <select id="daySelect">
+        <option value="Maandag">Maandag</option>
+        <option value="Dinsdag">Dinsdag</option>
+        <option value="Woensdag">Woensdag</option>
+        <option value="Donderdag">Donderdag</option>
+        <option value="Vrijdag">Vrijdag</option>
+        <option value="Zaterdag">Zaterdag</option>
+        <option value="Zondag">Zondag</option>
+      </select>
+    </div>
+    
+    <!-- Spiergroepselectie -->
+    <div>
+      <label for="muscleGroupSelect"><strong>Kies een spiergroep:</strong></label><br />
+      <select id="muscleGroupSelect" onchange="updateExerciseSelect()">
+        <!-- Dynamisch gevuld via init() -->
+      </select>
+    </div>
+    
+    <!-- Oefeningselectie -->
+    <div>
+      <label for="exerciseSelect"><strong>Kies een oefening:</strong></label><br />
+      <select id="exerciseSelect">
+        <!-- Dynamisch gevuld op basis van spiergroep -->
+      </select>
+    </div>
+  </div>
+  
+  <!-- Sets/gewichten invoer -->
+  <div style="margin-top: 20px;">
+    <label for="setWeight">Gewicht (kg):</label>
+    <input type="number" step="0.1" id="setWeight" style="width:80px;" />
+    &nbsp;
+    <label for="setReps">Herhalingen:</label>
+    <input type="number" id="setReps" style="width:60px;" />
+    &nbsp;
+    <button onclick="addSet()">Voeg set toe</button>
+  </div>
+</section>
+
+<!-- OEFENING-HISTORIE SECTION -->
+<section id="exerciseHistorySection">
+  <h2>Oefening-historie</h2>
+  <p>Klik op een oefening om de gewichts- en herhalingstrend te zien.</p>
+  <input type="text" id="historySearchInput" placeholder="Zoek oefening..." oninput="filterExerciseHistory()" />
+  <div id="exerciseHistoryList" style="margin-top:10px; max-height:200px; overflow-y:auto; border:1px solid #ccc; padding:5px;"></div>
+
+  <div class="chart-container">
+    <canvas id="exerciseChart"></canvas>
+  </div>
+</section>
+
+<!-- GEWICHT-HISTORIE SECTION -->
+<section id="weightHistorySection">
+  <h2>Gewicht-historie</h2>
+  <form onsubmit="event.preventDefault(); addWeight();">
+    <label for="weightValue">Gewicht (kg):</label>
+    <input type="number" step="0.1" id="weightValue" required />
+    <button type="submit">Opslaan</button>
+  </form>
+
+  <div class="chart-container">
+    <canvas id="weightChart"></canvas>
+  </div>
+  
+  <table id="weightLogTable">
+    <thead>
+      <tr>
+        <th>Datum</th>
+        <th>Gewicht (kg)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<!-- Chart.js via CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+/* ------------------------------
+   1. INITIËLE DATA & STORAGE
+------------------------------ */
+
+// Default spiergroepen + oefeningen
+const defaultExercises = {
+  "Chest":       ["Bench Press", "Chest Fly", "Incline Press"],
+  "Triceps":     ["Triceps Extension", "Cable Pushdown", "Skullcrusher"],
+  "Schouders":   ["Shoulder Press", "Lateral Raise", "Front Raise"],
+  "Rug":         ["Deadlift", "Bent-over Row", "Lat Pulldown"],
+  "Biceps":      ["Biceps Curl", "Hammer Curl"],
+  "Onderarmen":  ["Wrist Curl", "Reverse Wrist Curl"],
+  "Benen":       ["Squat", "Lunge", "Leg Press"],
+  "Abs":         ["Crunches", "Plank", "Leg Raise"]
+};
+
+// Check of er al data in localStorage staat, zo niet initieer met defaults
+function initExercises() {
+  if (!localStorage.getItem("exercises")) {
+    localStorage.setItem("exercises", JSON.stringify(defaultExercises));
+  }
+}
+
+function initWorkoutLog() {
+  if (!localStorage.getItem("workoutLog")) {
+    localStorage.setItem("workoutLog", JSON.stringify([]));
+  }
+}
+
+function initWeightLog() {
+  if (!localStorage.getItem("weightLog")) {
+    localStorage.setItem("weightLog", JSON.stringify([]));
+  }
+}
+
+// Start de app
+function init() {
+  initExercises();
+  initWorkoutLog();
+  initWeightLog();
+  
+  // Vul de muscleGroupSelect dropdown
+  const exercisesData = JSON.parse(localStorage.getItem("exercises"));
+  const muscleGroupSelect = document.getElementById("muscleGroupSelect");
+  muscleGroupSelect.innerHTML = '';
+  
+  // Maak <option> voor elke spiergroep
+  Object.keys(exercisesData).forEach(mg => {
+    const option = document.createElement('option');
+    option.value = mg;
+    option.textContent = mg;
+    muscleGroupSelect.appendChild(option);
+  });
+  
+  // Direct de oefening-select updaten op basis van de eerste spiergroep
+  updateExerciseSelect();
+}
+
+/* ------------------------------
+   2. NAVIGATIE & SECTIEWEERGAVE
+------------------------------ */
+function showSection(sectionId) {
+  const sections = document.querySelectorAll('section');
+  sections.forEach(sec => sec.classList.remove('active'));
+  document.getElementById(sectionId).classList.add('active');
+
+  // Extra acties bij tonen van bepaalde secties
+  if (sectionId === 'exerciseHistorySection') {
+    renderExerciseHistory();
+  } else if (sectionId === 'weightHistorySection') {
+    renderWeightTable();
+    updateWeightChart();
+  }
+}
+
+/* ------------------------------
+   3. WORKOUTS - LOGGEN VAN SETS
+------------------------------ */
+function updateExerciseSelect() {
+  const mgSelect = document.getElementById("muscleGroupSelect");
+  const exerciseSelect = document.getElementById("exerciseSelect");
+  
+  const chosenMG = mgSelect.value;
+  const exercisesData = JSON.parse(localStorage.getItem("exercises"));
+  
+  exerciseSelect.innerHTML = '';
+  if (exercisesData[chosenMG]) {
+    exercisesData[chosenMG].forEach(ex => {
+      const option = document.createElement('option');
+      option.value = ex;
+      option.textContent = ex;
+      exerciseSelect.appendChild(option);
+    });
+  }
+}
+
+function addSet() {
+  const day = document.getElementById("daySelect").value;
+  const muscleGroup = document.getElementById("muscleGroupSelect").value;
+  const exerciseName = document.getElementById("exerciseSelect").value;
+  const weight = parseFloat(document.getElementById("setWeight").value) || 0;
+  const reps = parseInt(document.getElementById("setReps").value) || 0;
+  
+  if (!exerciseName) return alert("Geen oefening geselecteerd!");
+
+  const workoutLog = JSON.parse(localStorage.getItem("workoutLog"));
+  const entry = {
+    date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+    day: day,
+    muscleGroup: muscleGroup,
+    exercise: exerciseName,
+    weight: weight,
+    reps: reps
+  };
+  workoutLog.push(entry);
+  localStorage.setItem("workoutLog", JSON.stringify(workoutLog));
+
+  // Velden resetten (optioneel)
+  document.getElementById("setWeight").value = '';
+  document.getElementById("setReps").value = '';
+  
+  alert(`Set toegevoegd: ${day}, ${exerciseName}, ${weight} kg x ${reps} reps`);
+}
+
+/* ------------------------------
+   4. OEFENING-HISTORIE + GRAFIEK
+------------------------------ */
+function renderExerciseHistory() {
+  const workoutLog = JSON.parse(localStorage.getItem("workoutLog"));
+  
+  // Unieke oefeningen uit de log
+  const uniqueExercises = [...new Set(workoutLog.map(item => item.exercise))];
+  
+  const container = document.getElementById('exerciseHistoryList');
+  container.innerHTML = '';
+  
+  if (uniqueExercises.length === 0) {
+    container.textContent = "Nog geen oefeningen gelogd.";
+    return;
+  }
+  
+  uniqueExercises.forEach(ex => {
+    const div = document.createElement('div');
+    div.textContent = ex;
+    div.style.cursor = 'pointer';
+    div.style.margin = '5px 0';
+    div.onclick = () => showExerciseHistoryChart(ex);
+    container.appendChild(div);
+  });
+}
+
+// Zoeken/filteren in de oefening-historielijst
+function filterExerciseHistory() {
+  const searchTerm = document.getElementById('historySearchInput').value.toLowerCase();
+  const container = document.getElementById('exerciseHistoryList');
+  const items = container.querySelectorAll('div');
+  
+  items.forEach(item => {
+    const text = item.textContent.toLowerCase();
+    item.style.display = text.includes(searchTerm) ? 'block' : 'none';
+  });
+}
+
+// Maak/Update een grafiek met 2 datasets (gewicht & reps) voor de gekozen oefening
+let exerciseChart; // globale referentie
+function showExerciseHistoryChart(exerciseName) {
+  const workoutLog = JSON.parse(localStorage.getItem("workoutLog"));
+  
+  // Filter data voor deze oefening
+  const dataForExercise = workoutLog.filter(item => item.exercise === exerciseName);
+  // Sorteer op datum oplopend (oudste eerst)
+  dataForExercise.sort((a,b) => new Date(a.date) - new Date(b.date));
+
+  const labels = dataForExercise.map(entry => entry.date);
+  const weightData = dataForExercise.map(entry => entry.weight);
+  const repsData   = dataForExercise.map(entry => entry.reps);
+
+  const ctx = document.getElementById('exerciseChart').getContext('2d');
+  if (exerciseChart) {
+    exerciseChart.destroy();
+  }
+  exerciseChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Gewicht (kg)',
+          data: weightData,
+          borderColor: 'blue',
+          backgroundColor: 'rgba(0,0,255,0.1)',
+          yAxisID: 'weightAxis'
+        },
+        {
+          label: 'Herhalingen (reps)',
+          data: repsData,
+          borderColor: 'red',
+          backgroundColor: 'rgba(255,0,0,0.1)',
+          yAxisID: 'repsAxis'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: {
+          // x-as laten we standaard
+        },
+        weightAxis: {
+          type: 'linear',
+          position: 'left',
+          beginAtZero: true
+        },
+        repsAxis: {
+          type: 'linear',
+          position: 'right',
+          beginAtZero: true
+        }
+      }
+    }
+  });
+}
+
+/* ------------------------------
+   5. GEWICHT REGISTRATIE & GRAFIEK
+------------------------------ */
+function addWeight() {
+  const weightValue = parseFloat(document.getElementById('weightValue').value);
+  if (isNaN(weightValue)) return alert("Ongeldige invoer voor gewicht!");
+
+  const weightLog = JSON.parse(localStorage.getItem("weightLog"));
+  const entry = {
+    date: new Date().toISOString().split('T')[0],
+    weight: weightValue
+  };
+  weightLog.push(entry);
+  localStorage.setItem("weightLog", JSON.stringify(weightLog));
+
+  document.getElementById('weightValue').value = '';
+  renderWeightTable();
+  updateWeightChart();
+}
+
+// Snelle invoer vanaf Home
+function addWeightQuick() {
+  const weightValue = parseFloat(document.getElementById('quickWeightValue').value);
+  if (isNaN(weightValue)) return alert("Ongeldige invoer voor gewicht!");
+
+  const weightLog = JSON.parse(localStorage.getItem("weightLog"));
+  const entry = {
+    date: new Date().toISOString().split('T')[0],
+    weight: weightValue
+  };
+  weightLog.push(entry);
+  localStorage.setItem("weightLog", JSON.stringify(weightLog));
+
+  document.getElementById('quickWeightValue').value = '';
+  alert("Gewicht opgeslagen!");
+}
+
+// Tabel weergeven met alle gewichten, laatste invoer bovenaan
+function renderWeightTable() {
+  const weightLog = JSON.parse(localStorage.getItem("weightLog"));
+  // Sorteer aflopend (nieuwste eerst)
+  weightLog.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+  const tbody = document.querySelector('#weightLogTable tbody');
+  tbody.innerHTML = '';
+  
+  weightLog.forEach(entry => {
+    const tr = document.createElement('tr');
+    const tdDate = document.createElement('td');
+    const tdWeight = document.createElement('td');
+    tdDate.textContent = entry.date;
+    tdWeight.textContent = entry.weight.toFixed(1);
+    tr.appendChild(tdDate);
+    tr.appendChild(tdWeight);
+    tbody.appendChild(tr);
+  });
+}
+
+// Gewichts-grafiek met Chart.js: oplopend (oudste links, nieuwste rechts)
+let weightChart;
+function updateWeightChart() {
+  const weightLog = JSON.parse(localStorage.getItem("weightLog"));
+  // Sorteer oplopend
+  weightLog.sort((a,b) => new Date(a.date) - new Date(b.date));
+
+  const labels = weightLog.map(entry => entry.date);
+  const dataPoints = weightLog.map(entry => entry.weight);
+
+  const ctx = document.getElementById('weightChart').getContext('2d');
+  if (weightChart) {
+    weightChart.destroy();
+  }
+  weightChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Gewicht (kg)',
+        data: dataPoints,
+        borderColor: 'green',
+        fill: false
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          beginAtZero: false
+        }
+      }
+    }
+  });
+}
+
+/* ------------------------------
+   6. RESETFUNCTIE OP HOME
+------------------------------ */
+function resetData() {
+  if (!confirm("Weet je zeker dat je alle data wilt wissen en herstarten?")) return;
+
+  // Wissen
+  localStorage.clear();
+  // Standaarddata weer aanmaken
+  init();
+  alert("Alle data is gereset naar standaardwaarden.\nHerlaad de pagina als er iets niet direct zichtbaar is.");
+}
+
+/* ------------------------------
+   ON PAGE LOAD
+------------------------------ */
+window.onload = () => {
+  init();  // initialiseert de data in localStorage en vult dropdowns
+};
+</script>
+
+</body>
+</html>
